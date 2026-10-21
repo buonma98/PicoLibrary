@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "author": "Mary Buoni",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-pi-pico",
+      "id": "pico",
+      "top": -27.9,
+      "left": -57.85,
+      "rotate": 270,
+      "attrs": { "env": "micropython-20260406-v1.28.0" }
+    },
+    {
+      "type": "wokwi-lcd1602",
+      "id": "lcd1",
+      "top": 169.6,
+      "left": -157.6,
+      "attrs": { "pins": "i2c" }
+    },
+    { "type": "wokwi-potentiometer", "id": "pot1", "top": -164.5, "left": -221, "attrs": {} },
+    {
+      "type": "wokwi-buzzer",
+      "id": "bz1",
+      "top": -84,
+      "left": 107.4,
+      "attrs": { "volume": "0.1" }
+    },
+    {
+      "type": "wokwi-led-ring",
+      "id": "ring1",
+      "top": 19.97,
+      "left": 236.46,
+      "attrs": { "pixels": "8" }
+    },
+    { "type": "wokwi-vcc", "id": "vcc1", "top": -18.44, "left": -211.2, "attrs": {} },
+    { "type": "wokwi-vcc", "id": "vcc2", "top": -162.44, "left": 403.2, "attrs": {} },
+    { "type": "wokwi-gnd", "id": "gnd1", "top": 268.8, "left": -211.8, "attrs": {} },
+    { "type": "wokwi-gnd", "id": "gnd2", "top": 364.8, "left": 258.6, "attrs": {} }
+  ],
+  "connections": [
+    [ "lcd1:GND", "gnd1:GND", "black", [ "h0" ] ],
+    [ "lcd1:VCC", "vcc1:VCC", "red", [ "h-19.2", "v134.5", "h-163.2", "v-336" ] ],
+    [ "vcc1:VCC", "pot1:VCC", "red", [ "v0", "h48" ] ],
+    [ "pot1:GND", "lcd1:GND", "black", [ "v48", "h-220.8", "v230.4" ] ],
+    [ "vcc2:VCC", "ring1:VCC", "red", [ "v278.4", "h-134.4" ] ],
+    [ "ring1:GND", "gnd2:GND", "black", [ "v0" ] ],
+    [ "gnd2:GND", "bz1:1", "black", [ "v-220.8", "h-134.4", "v-144" ] ],
+    [ "bz1:2", "pico:GP16", "green", [ "v9.6", "h57.2", "v-172.8", "h-86.4" ] ],
+    [ "ring1:DIN", "pico:GP2", "green", [ "v288", "h-134.4", "v-259.2", "h-9.6" ] ],
+    [ "pot1:SIG", "pico:GP26", "green", [ "v76.8", "h143.6" ] ],
+    [ "lcd1:SDA", "pico:GP0", "green", [ "h-28.8", "v-115" ] ],
+    [ "lcd1:SCL", "pico:GP1", "green", [ "h-9.6", "v-105.3", "h67.2" ] ]
+  ],
+  "dependencies": {}
+}
