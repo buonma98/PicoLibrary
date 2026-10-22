@@ -1,7 +1,7 @@
 """
 # main.py
 # Main entrypoint script to run the MysteryGadget engine simulation on Raspberry Pi Pico
-# Author: insert your name here
+# Author: Mary Buoni
 """
 
 import time
@@ -17,11 +17,11 @@ def main():
 
     # Hardware pin mapping:
     # - LCD Display: I2C on GP0 (SDA) and GP1 (SCL)
-    # - Passive Buzzer: GP15
+    # - Passive Buzzer: GP16
     # - NeoPixel Light Strip: GP2 (8 LEDs, 50% brightness)
     # - Potentiometer: ADC0 (GP26)
     display = LCDDisplay(sda=0, scl=1)
-    buzzer = PassiveBuzzer(pin=15, name="EngineBuzzer")
+    buzzer = PassiveBuzzer(pin=16, name="EngineBuzzer")
     light_strip = LightStrip(pin=2, name="TachometerStrip", numleds=8, brightness=0.5)
     potentiometer = AnalogSensor(pin=26, name="ThrottlePotentiometer")
 
@@ -40,7 +40,8 @@ def main():
 
         # 2. Control it for about 10 seconds (monitors throttle, adjusts RPM/speed, tachometer & audio)
         Log.i("main: Controlling MysteryGadget for 10 seconds...")
-        gadget.control(duration=10.0, delay=0.05)
+        gadget.control(duration=10.0, iterations=None, delay=0.05)
+
 
     except KeyboardInterrupt:
         Log.w("main: Execution interrupted by user")
