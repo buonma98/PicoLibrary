@@ -192,7 +192,7 @@ class Faculty(Employee):
     1. Creating a faculty member:
        ```python
        prof = Faculty("Dr. John Doe", courses=["COP4338", "CIS3931"], officeHours="MWF 10-12")
-       print(prof.getDisplayInfo())  # 'COP4338 MWF 10-12'
+       print(prof.getDisplayInfo())  # 'COP4338'
        ```
     """
 
@@ -208,16 +208,14 @@ class Faculty(Employee):
 
     def getDisplayInfo(self):
         """
-        Return course and office hours string for display.
+        Return course string for display.
 
         Returns:
         -------
         str
-            Formatted course and office hours.
+            Formatted course string.
         """
         course_str = self.courses[0] if self.courses else "No Courses"
-        if self.officeHours:
-            return f"{course_str} {self.officeHours}"
         return course_str
 
 
@@ -245,7 +243,7 @@ class Staff(Employee):
     1. Creating a staff member:
        ```python
        staff = Staff("Sarah Connor", department="IT Support")
-       print(staff.getDisplayInfo())  # 'IT Support Staff'
+       print(staff.getDisplayInfo())  # 'IT Staff'
        ```
     """
 
@@ -266,7 +264,7 @@ class Staff(Employee):
             Formatted staff information string.
         """
         if self.department:
-            return f"{self.department} Staff"
+            return f"{self.department.split()[0]} Staff"
         return self.position
 
 
@@ -294,7 +292,7 @@ class StudentWorker(Employee):
     1. Creating a student worker:
        ```python
        student = StudentWorker("Emily Clark", department="Dean's Office")
-       print(student.getDisplayInfo())  # 'Student Assistant'
+       print(student.getDisplayInfo())  # 'Stu Asst'
        ```
     """
 
@@ -315,7 +313,7 @@ class StudentWorker(Employee):
         str
             Formatted student worker role.
         """
-        return "Student Assistant"
+        return "Stu Asst"
 
 
 class Administrator(Employee):
@@ -349,7 +347,7 @@ class Administrator(Employee):
        cal = Calendar()
        admin = Administrator("Dean Garcia", calendar=cal)
        print(admin.getAvailability())  # 'Available'
-       print(admin.getDisplayInfo())   # 'Admin Office'
+       print(admin.getDisplayInfo())   # 'Admin'
        ```
 
     2. Administrator with scheduled meeting (Busy):
@@ -391,7 +389,7 @@ class Administrator(Employee):
         str
             Formatted administrative info string.
         """
-        return "Admin Office"
+        return "Admin"
 
 
 if __name__ == "__main__":
@@ -428,23 +426,23 @@ if __name__ == "__main__":
     assert faculty.position == "Faculty"
     assert faculty.courses == ["COP4338", "CIS3931"]
     assert faculty.officeHours == "MWF 10-12"
-    assert "COP4338 MWF 10-12" in faculty.getDisplayInfo(), f"Got {faculty.getDisplayInfo()}"
+    assert faculty.getDisplayInfo() == "COP4338", f"Got {faculty.getDisplayInfo()}"
 
     # 4. Test Staff subclass
     staff = Staff("Sarah Connor", department="IT Support")
     assert staff.name == "Sarah Connor"
-    assert staff.getDisplayInfo() == "IT Support Staff"
+    assert staff.getDisplayInfo() == "IT Staff"
 
     # 5. Test StudentWorker subclass
     student = StudentWorker("Emily Clark", department="Dean's Office")
     assert student.name == "Emily Clark"
-    assert student.getDisplayInfo() == "Student Assistant"
+    assert student.getDisplayInfo() == "Stu Asst"
 
     # 6. Test Administrator subclass with Calendar
     admin_free = Administrator("Dean Garcia", calendar=cal_empty)
     assert admin_free.name == "Dean Garcia"
     assert admin_free.getAvailability() == STATUS_AVAILABLE, "Admin with empty calendar should be Available"
-    assert admin_free.getDisplayInfo() == "Admin Office"
+    assert admin_free.getDisplayInfo() == "Admin"
 
     admin_busy = Administrator("Dean Garcia", calendar=cal_busy)
     assert admin_busy.getAvailability() == STATUS_BUSY, "Admin with busy calendar should be Busy"
