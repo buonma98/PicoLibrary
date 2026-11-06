@@ -9,6 +9,14 @@ from Log import *
 from Employee import Employee, Administrator, Faculty, Staff, StudentWorker, Calendar
 from NamePlateView import NamePlateView
 
+# Safe top-level import of micropython module for ISR scheduling on RP2040
+try:
+    import micropython
+    # Pre-allocate emergency exception buffer so MicroPython can safely print exceptions from ISRs
+    micropython.alloc_emergency_exception_buf(100)
+except (ImportError, AttributeError):
+    micropython = None
+
 
 class NamePlate:
     """
@@ -80,7 +88,7 @@ class NamePlate:
         nextButton : Button, optional
             Navigation button for next employee.
         availabilityButton : Button, optional
-            Button for availability toggling.
+            Navigation button for availability toggling.
         employees : list of Employee, optional
             Initial roster list.
         """
@@ -92,6 +100,7 @@ class NamePlate:
 
         self.employees = list(employees) if employees is not None else []
         self.currentIndex = 0
+        self._pending_button = None
 
         # Bind button handlers
         self.handleButtons()
@@ -193,38 +202,49 @@ class NamePlate:
 
     def buttonPressed(self, name):
         """
-        Callback triggered when any button is pressed.
+        Callback triggered by Button.py when any button is pressed.
 
-        Safely defers hardware execution using `micropython.schedule` when running
-        on the Raspberry Pi Pico to prevent I2C bus contention or interrupt blocking.
+        To guarantee complete hardware safety on the Raspberry Pi Pico, this method
+        does NOT perform module imports, string formatting, logging, I2C writes, or
+        sleep calls inside the interrupt context. Instead, it defers execution to the
+        main thread via micropython.schedule.
 
         Parameters:
         ----------
         name : str
             Identifier string of the button pressed.
         """
-        Log.i(f"NamePlate: buttonPressed received -> '{name}'")
-        try:
-            import micropython
-            micropython.schedule(self._process_button_press, name)
-        except Exception:
-            self._process_button_press(name)
+        if micropython is not None:
+            try:
+                micropython.schedule(self._on_button_event, name)
+                return
+            except RuntimeError:
+                # Scheduler queue is full under rapid presses; buffer event
+                self._pending_button = name
+                return
+
+        # Fallback for desktop Python / non-MicroPython testing environments
+        self._on_button_event(name)
 
     def buttonReleased(self, name):
         """
-        Callback triggered when any button is released.
+        Callback triggered by Button.py when any button is released.
 
         Parameters:
         ----------
         name : str
             Identifier string of the button released.
         """
-        Log.d(f"NamePlate: buttonReleased -> '{name}'")
+        pass
 
-    def _process_button_press(self, name):
+    def _on_button_event(self, name):
         """
-        Internal routing logic for button press events.
+        Internal dispatcher executed on the main thread outside of interrupt context.
+
+        Performs logging, LCD updates, buzzer sounds, and availability changes safely.
         """
+        Log.i(f"NamePlate: Button event dispatched -> '{name}'")
+
         prev_name = getattr(self.previousButton, '_name', None)
         next_name = getattr(self.nextButton, '_name', None)
         avail_name = getattr(self.availabilityButton, '_name', None)
