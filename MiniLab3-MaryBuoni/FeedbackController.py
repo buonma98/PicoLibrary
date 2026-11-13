@@ -131,8 +131,8 @@ class FeedbackController:
         elif state == self.STATE_SELECTION:
             # 1 - Selection: entry / showPrompt
             self.view.showPrompt()
-            # Start a 10-second timer to wait for customer rating
-            self.timer.start(10)
+            # Start a 5-second timer to wait for customer rating
+            self.timer.start(5)
 
         elif state == self.STATE_HAPPY:
             # 2 - Happy: entry / recordPositiveFeedback
