@@ -1,6 +1,6 @@
 """
 FeedbackStats.py
-Model class that tracks customer satisfaction metrics for The Pit Stop kiosk.
+Model class that tracks customer satisfaction metrics for QuickRate kiosk.
 Author: buonma98
 """
 
@@ -11,10 +11,10 @@ class FeedbackStats:
     """
     FeedbackStats maintains customer feedback counts, calculates satisfaction
     percentages, and evaluates whether customer satisfaction has dropped below
-    a configurable alert threshold.
+    a configurable alert threshold (30%).
     """
 
-    def __init__(self, threshold: float = 50.0, minVotes: int = 1):
+    def __init__(self, threshold: float = 30.0, minVotes: int = 1):
         """
         Initialize satisfaction metrics.
 
@@ -22,7 +22,7 @@ class FeedbackStats:
         -----------
         threshold : float
             Satisfaction percentage below which an alarm condition is triggered.
-            Defaults to 50.0%.
+            Defaults to 30.0%.
         minVotes : int
             Minimum number of votes required before evaluating threshold.
             Defaults to 1.
@@ -65,7 +65,7 @@ class FeedbackStats:
 
     def belowThreshold(self) -> bool:
         """
-        Check if satisfaction is below the alert threshold.
+        Check if satisfaction is below the alert threshold (default 30%).
         Only triggers if at least minVotes have been recorded.
         """
         total = self._positiveCount + self._negativeCount

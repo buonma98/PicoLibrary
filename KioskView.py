@@ -10,8 +10,9 @@ from Lights import RED, GREEN, BLUE, YELLOW, WHITE, BLACK
 
 class KioskView:
     """
-    KioskView encapsulates the presentation layer for The Pit Stop satisfaction kiosk.
+    KioskView encapsulates the presentation layer for the QuickRate kiosk.
     It drives the two-line 1602 LCD and the 8-pixel NeoPixel LED ring.
+    All LCD lines are strictly formatted to 16 characters max.
     """
 
     def __init__(self, lcd, leds):
@@ -27,6 +28,7 @@ class KioskView:
         """
         self._lcd = lcd
         self._leds = leds
+        self._alarm_flash_state: bool = False
         Log.i("KioskView initialized with LCD and LightStrip")
 
     @property
@@ -46,7 +48,7 @@ class KioskView:
         # Pad or truncate strings to exactly 16 characters
         l1 = f"{line1[:16]:<16}"
         l2 = f"{line2[:16]:<16}"
-        
+
         # Displays.py uses showText(text, row, col)
         if hasattr(self._lcd, 'showText'):
             self._lcd.showText(l1, 0, 0)
@@ -55,22 +57,30 @@ class KioskView:
             self._lcd.display(f"{l1}\n{l2}")
 
     def showWelcome(self) -> None:
-        """Display the idle welcome screen on LCD and calm blue light on LEDs."""
-        self._write_lcd("  The Pit Stop  ", "Step Up to Rate ")
+        """
+        Display the idle welcome screen on LCD and calm blue light on LEDs.
+        Line 1: Welcome!
+        Line 2: Step closer
+        """
+        self._write_lcd("Welcome!", "Step closer")
         if self._leds:
             self._leds.setColor(BLUE)
         Log.i("KioskView: Showing Welcome screen")
 
     def showPrompt(self) -> None:
-        """Display the rating prompt on LCD and illuminate LEDs for customer input."""
-        self._write_lcd("Rate Your Visit ", "Grn=Good Red=Bad")
+        """
+        Display the rating prompt on LCD and illuminate LEDs for customer input.
+        Line 1: How was your
+        Line 2: experience?
+        """
+        self._write_lcd("How was your", "experience?")
         if self._leds:
             self._leds.setColor(WHITE)
         Log.i("KioskView: Showing Rating Prompt")
 
     def showResult(self, good: bool, percent: float) -> None:
         """
-        Display feedback confirmation and updated satisfaction score.
+        Display feedback confirmation and updated satisfaction percentage.
 
         Parameters:
         -----------
@@ -80,11 +90,15 @@ class KioskView:
             Current overall satisfaction percentage.
         """
         if good:
-            self._write_lcd(" Thank You! :D  ", f"Score: {percent:.0f}%")
+            # Line 1: Love to hear it!
+            # Line 2: Thank you! XX%
+            self._write_lcd("Love to hear it!", f"Thank you! {percent:.0f}%")
             if self._leds:
                 self._leds.setColor(GREEN)
         else:
-            self._write_lcd("We're Sorry! :( ", f"Score: {percent:.0f}%")
+            # Line 1: We're sorry!
+            # Line 2: Shortened from "Thanks for sharing" (18 chars) to fit 16 chars
+            self._write_lcd("We're sorry!", f"Thanks! {percent:.0f}%")
             if self._leds:
                 self._leds.setColor(RED)
         Log.i(f"KioskView: Showing Result (good={good}, score={percent:.1f}%)")
@@ -93,28 +107,46 @@ class KioskView:
         """
         Reflect current satisfaction mood on the LED ring:
         - 75% - 100%: Green
-        - 50% - 74%: Yellow
-        - < 50%: Red
+        - 30% - 74%: Yellow
+        - < 30%: Red
         """
         if not self._leds:
             return
         if percent >= 75.0:
             self._leds.setColor(GREEN)
-        elif percent >= 50.0:
+        elif percent >= 30.0:
             self._leds.setColor(YELLOW)
         else:
             self._leds.setColor(RED)
 
     def showAlarm(self) -> None:
-        """Display manager alert warning on LCD and flashing/solid red on LEDs."""
-        self._write_lcd(" MANAGER ALERT! ", "Low Satisfaction")
+        """
+        Display manager alert warning on LCD and red on LEDs.
+        Line 1: Low satisfaction
+        Line 2: Manager needed
+        """
+        self._write_lcd("Low satisfaction", "Manager needed")
         if self._leds:
             self._leds.setColor(RED)
         Log.w("KioskView: Showing Manager Alert screen")
 
+    def flashAlarm(self) -> None:
+        """Toggle red LED ring on and off to flash during active alarm."""
+        if not self._leds:
+            return
+        self._alarm_flash_state = not self._alarm_flash_state
+        if self._alarm_flash_state:
+            self._leds.setColor(RED)
+        else:
+            self._leds.setColor(BLACK)
+
     def showSilenced(self) -> None:
-        """Display alert silenced screen with instructions to reset."""
-        self._write_lcd(" Alert Silenced ", "Grn=Reset Kiosk ")
+        """
+        Display alert silenced screen with action needed instruction.
+        Line 1: Alarm silenced
+        Line 2: Action needed
+        """
+        self._write_lcd("Alarm silenced", "Action needed")
         if self._leds:
             self._leds.setColor(YELLOW)
         Log.i("KioskView: Showing Alert Silenced screen")

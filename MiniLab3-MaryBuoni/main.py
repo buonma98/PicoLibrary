@@ -1,6 +1,6 @@
 """
 main.py
-Main entry point for "The Pit Stop" satisfaction kiosk (Mini Lab 3).
+Main entry point for "QuickRate" customer satisfaction kiosk (Mini Lab 3).
 Connects physical hardware peripherals to the Controller, View, and Model.
 Author: buonma98
 """
@@ -29,7 +29,7 @@ if not hasattr(PassiveBuzzer, 'playTone'):
 
 
 def main():
-    print("Starting The Pit Stop Satisfaction Kiosk...")
+    print("Starting QuickRate Satisfaction Kiosk...")
 
     # 1. Hardware setup matching Wokwi circuit
     # LCD 1602 Display (I2C): SDA on GP0, SCL on GP1
@@ -42,7 +42,7 @@ def main():
     buzzer = PassiveBuzzer(pin=21, name="bz1")
 
     # Three Buttons (all lowActive / pull-up to ground):
-    # - Green button on GP13 (Positive feedback / Reset)
+    # - Green button on GP13 (Positive feedback / Reset during alert)
     # - Red button on GP14 (Negative feedback)
     # - Blue button on GP15 (Manager silence button)
     green_btn = Button(13, "green", handler=None)
@@ -50,12 +50,13 @@ def main():
     manager_btn = Button(15, "manager", handler=None)
 
     # Ultrasonic Sensor on GP2 (TRIG) and GP3 (ECHO)
-    # Tripped when customer is within 100 cm (distance < 100 cm)
-    uss = UltrasonicSensor(trigger=2, echo=3, name="uss", lowActive=True, threshold=100.0)
+    # Tripped when customer is within 10 cm (distance < 10.0 cm)
+    uss = UltrasonicSensor(trigger=2, echo=3, name="uss", lowActive=True, threshold=10.0)
 
     # 2. Instantiate View, Model, and Alert components
     view = KioskView(lcd=lcd, leds=led_ring)
-    stats = FeedbackStats(threshold=50.0, minVotes=1)
+    # Alert threshold is set to 30.0% satisfaction
+    stats = FeedbackStats(threshold=30.0, minVotes=1)
     alert = ManagerAlert(buzzer=buzzer, tone=880)
 
     # 3. Instantiate Controller with State Model
