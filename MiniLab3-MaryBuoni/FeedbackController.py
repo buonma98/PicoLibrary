@@ -153,7 +153,9 @@ class FeedbackController:
 
         if state == self.STATE_WELCOME:
             # 0 - Welcome: entry / showWelcome
-            self.view.showWelcome()
+            # Check if any votes have been submitted yet to show live satisfaction meter or blue idle lights
+            has_votes = (self.stats.positiveCount + self.stats.negativeCount) > 0
+            self.view.showWelcome(has_votes=has_votes, percent=self.stats.getSatisfaction())
 
         elif state == self.STATE_SELECTION:
             # 1 - Selection: entry / showPrompt

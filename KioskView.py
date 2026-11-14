@@ -13,6 +13,12 @@ class KioskView:
     """
     KioskView encapsulates the presentation layer for the QuickRate kiosk.
     It drives the two-line 1602 LCD and the 8-pixel NeoPixel LED ring.
+    The LED ring acts as a live satisfaction meter:
+      - Each LED represents 12.5% satisfaction
+      - >= 75%: Green LEDs (e.g., 100% = 8 green, 75% = 6 green)
+      - 50% - 74%: Yellow LEDs (e.g., 50% = 4 yellow)
+      - < 50%: Red LEDs (e.g., 25% = 2 red)
+      - Remaining LEDs are off
     All LCD lines are strictly formatted to 16 characters max.
     """
 
@@ -58,16 +64,21 @@ class KioskView:
         elif hasattr(self._lcd, 'display'):
             self._lcd.display(f"{l1}\n{l2}")
 
-    def showWelcome(self) -> None:
+    def showWelcome(self, has_votes: bool = False, percent: float = 100.0) -> None:
         """
-        Display the idle welcome screen on LCD and calm blue light on LEDs.
+        Display the idle welcome screen on LCD.
+        If nobody has voted yet, keep the blue welcome lights.
+        If votes have been submitted, keep showing the current satisfaction meter.
         Line 1: Welcome!
         Line 2: Step closer
         """
         self._write_lcd("Welcome!", "Step closer")
         if self._leds:
-            self._leds.setColor(BLUE)
-        Log.i("KioskView: Showing Welcome screen")
+            if has_votes:
+                self.showMood(percent)
+            else:
+                self._leds.setColor(BLUE)
+        Log.i(f"KioskView: Showing Welcome screen (has_votes={has_votes})")
 
     def showPrompt(self) -> None:
         """
@@ -82,7 +93,7 @@ class KioskView:
 
     def showResult(self, good: bool, percent: float) -> None:
         """
-        Display feedback confirmation and updated satisfaction percentage.
+        Display feedback confirmation on LCD and update the live satisfaction meter on LEDs.
 
         Parameters:
         -----------
@@ -95,31 +106,41 @@ class KioskView:
             # Line 1: Love to hear it!
             # Line 2: Thank you! XX%
             self._write_lcd("Love to hear it!", f"Thank you! {percent:.0f}%")
-            if self._leds:
-                self._leds.setColor(GREEN)
         else:
             # Line 1: We're sorry!
             # Line 2: Shortened from "Thanks for sharing" (18 chars) to fit 16 chars
             self._write_lcd("We're sorry!", f"Thanks! {percent:.0f}%")
-            if self._leds:
-                self._leds.setColor(RED)
+
+        # Update the 8-LED ring as a live satisfaction meter
+        self.showMood(percent)
         Log.i(f"KioskView: Showing Result (good={good}, score={percent:.1f}%)")
 
     def showMood(self, percent: float) -> None:
         """
-        Reflect current satisfaction mood on the LED ring:
-        - 75% - 100%: Green
-        - 30% - 74%: Yellow
-        - < 30%: Red
+        Display the 8-LED ring as a live satisfaction meter:
+        Each LED represents 12.5% satisfaction.
+        - >= 75%: Green LEDs (e.g., 100% = 8 green, 75% = 6 green)
+        - 50% - 74%: Yellow LEDs (e.g., 50% = 4 yellow)
+        - < 50%: Red LEDs (e.g., 25% = 2 red)
+        Remaining LEDs are turned off.
         """
         if not self._leds:
             return
+
+        # Calculate number of LEDs to light up (each LED = 12.5%)
+        num_leds = int(round(percent / 12.5))
+        num_leds = max(0, min(8, num_leds))
+
+        # Determine color based on satisfaction tier
         if percent >= 75.0:
-            self._leds.setColor(GREEN)
-        elif percent >= 30.0:
-            self._leds.setColor(YELLOW)
+            color = GREEN
+        elif percent >= 50.0:
+            color = YELLOW
         else:
-            self._leds.setColor(RED)
+            color = RED
+
+        self._leds.setColor(color, num_leds)
+        Log.i(f"KioskView: Satisfaction meter set to {percent:.1f}% ({num_leds} LEDs, color={color})")
 
     def showAlarm(self) -> None:
         """
