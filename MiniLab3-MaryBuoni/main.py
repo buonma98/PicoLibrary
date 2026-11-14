@@ -7,7 +7,7 @@ Author: buonma98
 
 import time
 from Displays import LCDDisplay
-from LightStrip import LightStrip
+from PioLightStrip import PioLightStrip
 from Buzzer import PassiveBuzzer
 from Button import Button
 
@@ -35,8 +35,10 @@ def main():
     # LCD 1602 Display (I2C): SDA on GP0, SCL on GP1
     lcd = LCDDisplay(sda=0, scl=1)
 
-    # NeoPixel LightStrip (8 LEDs ring): DIN on GP16
-    led_ring = LightStrip(pin=16, name="ring1", numleds=8, brightness=0.5)
+    # Hardware PIO-based WS2812 LED ring (8 LEDs): DIN on GP16
+    # Uses official rp2 PIO state machine for stable 800kHz timing on RP2040 and RP2350 (Pico 2 W)
+    # Brightness 0.2 provides clear visibility while limiting current consumption on the 3V3 rail
+    led_ring = PioLightStrip(pin=16, name="ring1", numleds=8, brightness=0.2)
 
     # Passive Buzzer: GP21
     buzzer = PassiveBuzzer(pin=21, name="bz1")
