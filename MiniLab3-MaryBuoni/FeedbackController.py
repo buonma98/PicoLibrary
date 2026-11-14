@@ -16,7 +16,7 @@ from ManagerAlert import ManagerAlert
 class FeedbackController:
     """
     FeedbackController coordinates the entire QuickRate satisfaction kiosk system.
-    It integrates hardware sensors and buttons into a 6-state state machine:
+    It integrates hardware sensors and 4 buttons into a 6-state state machine:
       - State 0: Welcome (idle / waiting for customer)
       - State 1: Selection (prompting customer for feedback)
       - State 2: Happy (positive feedback recorded)
@@ -33,8 +33,8 @@ class FeedbackController:
     STATE_ALARM_SILENCED = 5
 
     def __init__(self, view: KioskView, stats: FeedbackStats, alert: ManagerAlert,
-                 greenButton, redButton, managerButton, ultrasonicSensor,
-                 debug: bool = True):
+                 greenButton, redButton, managerButton, resetButton,
+                 ultrasonicSensor, debug: bool = True):
         """
         Initialize the FeedbackController and configure the state model.
 
@@ -47,11 +47,13 @@ class FeedbackController:
         alert : ManagerAlert
             Manager alert controller driving the buzzer.
         greenButton : Button
-            Button on GP13 (Positive feedback / Reset during alert).
+            Button on GP13 (Positive feedback).
         redButton : Button
             Button on GP14 (Negative feedback).
         managerButton : Button
             Button on GP15 (Manager silence button).
+        resetButton : Button
+            Button on GP18 (Manager reset button).
         ultrasonicSensor : UltrasonicSensor
             Ultrasonic sensor on GP2 (trig) / GP3 (echo) with 10 cm threshold.
         debug : bool
@@ -72,11 +74,36 @@ class FeedbackController:
         self.greenButton = greenButton
         self.redButton = redButton
         self.managerButton = managerButton
+        self.resetButton = resetButton
         self.ultrasonicSensor = ultrasonicSensor
 
         self.stateModel.addButton(self.greenButton)
         self.stateModel.addButton(self.redButton)
         self.stateModel.addButton(self.managerButton)
+        self.stateModel.addButton(self.resetButton)
+
+        # Sensor responsiveness optimization:
+        # Ultrasonic echo timeout can block the main CPU loop for 60ms every cycle.
+        # We only need to check the sensor when the kiosk is idle in State 0 waiting
+        # for a customer. When in States 1-5, skipping the ultrasonic measurement
+        # makes the buttons respond instantly without any lag.
+        orig_tripped = self.ultrasonicSensor.tripped
+        last_check_time = 0
+        last_trip_val = False
+
+        def responsive_tripped():
+            nonlocal last_check_time, last_trip_val
+            # Only poll the ultrasonic sensor when in State 0 (Welcome)
+            if self.stateModel._curState != self.STATE_WELCOME:
+                return False
+            now = time.ticks_ms()
+            if time.ticks_diff(now, last_check_time) < 150:
+                return last_trip_val
+            last_check_time = now
+            last_trip_val = orig_tripped()
+            return last_trip_val
+
+        self.ultrasonicSensor.tripped = responsive_tripped
 
         # Configure ultrasonic sensor
         # Sensor name dictates event: [name]_trip and [name]_untrip
@@ -92,7 +119,7 @@ class FeedbackController:
         # State 1 (Selection):
         # green_press -> State 2 (Happy)
         # red_press -> State 3 (Unhappy)
-        # timer_timeout (customer left without voting) -> State 0 (Welcome)
+        # timer_timeout (customer left without voting, 5s timeout) -> State 0 (Welcome)
         self.stateModel.addTransition(self.STATE_SELECTION, ["green_press"], self.STATE_HAPPY)
         self.stateModel.addTransition(self.STATE_SELECTION, ["red_press"], self.STATE_UNHAPPY)
         self.stateModel.addTransition(self.STATE_SELECTION, ["timer_timeout"], self.STATE_WELCOME)
@@ -105,16 +132,16 @@ class FeedbackController:
 
         # State 4 (Alarm):
         # manager_press (blue button silences buzzer, keeps ratings) -> State 5 (Alarm Silenced)
-        # timer_timeout -> State 5 (Alarm Silenced)
-        # green_press (resets stats) -> State 0 (Welcome)
+        # timer_timeout (10s buzzer timeout) -> State 5 (Alarm Silenced)
+        # reset_press (yellow button resets stats & clears alert) -> State 0 (Welcome)
         self.stateModel.addTransition(self.STATE_ALARM, ["manager_press", "timer_timeout"], self.STATE_ALARM_SILENCED)
-        self.stateModel.addTransition(self.STATE_ALARM, ["green_press"], self.STATE_WELCOME)
+        self.stateModel.addTransition(self.STATE_ALARM, ["reset_press"], self.STATE_WELCOME)
 
         # State 5 (Alarm Silenced):
-        # green_press (resets stats) -> State 0 (Welcome)
-        self.stateModel.addTransition(self.STATE_ALARM_SILENCED, ["green_press"], self.STATE_WELCOME)
+        # reset_press (yellow button resets stats & clears alert) -> State 0 (Welcome)
+        self.stateModel.addTransition(self.STATE_ALARM_SILENCED, ["reset_press"], self.STATE_WELCOME)
 
-        Log.i("FeedbackController: Configured 6 states and transitions successfully.")
+        Log.i("FeedbackController: Configured 6 states and 4 buttons successfully.")
 
     # -------------------------------------------------------------------------
     # StateModel Handler Callbacks: stateEntered, stateLeft, stateEvent, stateDo
@@ -150,7 +177,7 @@ class FeedbackController:
             # 4 - Alarm: entry / activateManagerAlert
             self.alert.start()
             self.view.showAlarm()
-            # Alarm sounds for 10 seconds before automatically moving to silenced
+            # Alarm sounds for up to 10 seconds unless silenced
             self.timer.start(10)
 
         elif state == self.STATE_ALARM_SILENCED:
@@ -166,8 +193,8 @@ class FeedbackController:
         if state in (self.STATE_SELECTION, self.STATE_HAPPY, self.STATE_UNHAPPY, self.STATE_ALARM):
             self.timer.cancel()
 
-        # In States 4 (Alarm) and 5 (Alarm Silenced), pressing green resets the statistics
-        if state in (self.STATE_ALARM, self.STATE_ALARM_SILENCED) and event == "green_press":
+        # In States 4 (Alarm) and 5 (Alarm Silenced), pressing yellow reset button resets statistics
+        if state in (self.STATE_ALARM, self.STATE_ALARM_SILENCED) and event == "reset_press":
             self.resetPressed()
 
     def stateEvent(self, state: int, event: str) -> bool:
@@ -189,7 +216,7 @@ class FeedbackController:
 
     def stateDo(self, state: int) -> None:
         """Perform continuous / in-state background activities."""
-        # Flash the LED ring red during active alarm
+        # Flash the LED ring red at normal steady speed during active alarm
         if state == self.STATE_ALARM:
             self.view.flashAlarm()
 
@@ -198,25 +225,25 @@ class FeedbackController:
     # -------------------------------------------------------------------------
 
     def greenPressed(self) -> None:
-        """Handle positive rating action."""
+        """Handle positive customer rating action."""
         self.stats.recordPositive()
         self.view.showResult(good=True, percent=self.stats.getSatisfaction())
 
     def redPressed(self) -> None:
-        """Handle negative rating action."""
+        """Handle negative customer rating action."""
         self.stats.recordNegative()
         self.view.showResult(good=False, percent=self.stats.getSatisfaction())
 
     def managerPressed(self) -> None:
-        """Handle manager button press to silence an active alarm without clearing ratings."""
+        """Handle manager blue button to silence buzzer without clearing ratings."""
         self.alert.silence()
         self.view.showSilenced()
 
     def resetPressed(self) -> None:
-        """Reset stats and clear alerts back to normal."""
+        """Handle manager yellow button to reset stats and clear alert."""
         self.alert.clear()
         self.stats.reset()
-        Log.i("FeedbackController: System reset via green button.")
+        Log.i("FeedbackController: System reset via reset button.")
 
     def update(self) -> None:
         """Alias to drive state model execution."""
@@ -225,4 +252,4 @@ class FeedbackController:
     def run(self) -> None:
         """Start and run the StateModel main event loop."""
         Log.i("FeedbackController: Starting QuickRate Kiosk State Model loop...")
-        self.stateModel.run(delay=0.1)
+        self.stateModel.run(delay=0.05)

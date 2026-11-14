@@ -4,6 +4,7 @@ View class coordinating visual output devices (LCD 1602 display and NeoPixel Lig
 Author: buonma98
 """
 
+import time
 from Log import Log
 from Lights import RED, GREEN, BLUE, YELLOW, WHITE, BLACK
 
@@ -29,6 +30,7 @@ class KioskView:
         self._lcd = lcd
         self._leds = leds
         self._alarm_flash_state: bool = False
+        self._last_flash_time: int = 0
         Log.i("KioskView initialized with LCD and LightStrip")
 
     @property
@@ -128,17 +130,25 @@ class KioskView:
         self._write_lcd("Low satisfaction", "Manager needed")
         if self._leds:
             self._leds.setColor(RED)
+        self._alarm_flash_state = True
+        self._last_flash_time = time.ticks_ms()
         Log.w("KioskView: Showing Manager Alert screen")
 
     def flashAlarm(self) -> None:
-        """Toggle red LED ring on and off to flash during active alarm."""
+        """
+        Toggle red LED ring on and off at a normal, steady speed (every 500 ms).
+        Prevents flickering on every loop iteration.
+        """
         if not self._leds:
             return
-        self._alarm_flash_state = not self._alarm_flash_state
-        if self._alarm_flash_state:
-            self._leds.setColor(RED)
-        else:
-            self._leds.setColor(BLACK)
+        now = time.ticks_ms()
+        if time.ticks_diff(now, self._last_flash_time) >= 500:
+            self._last_flash_time = now
+            self._alarm_flash_state = not self._alarm_flash_state
+            if self._alarm_flash_state:
+                self._leds.setColor(RED)
+            else:
+                self._leds.setColor(BLACK)
 
     def showSilenced(self) -> None:
         """

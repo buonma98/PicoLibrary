@@ -41,13 +41,15 @@ def main():
     # Passive Buzzer: GP21
     buzzer = PassiveBuzzer(pin=21, name="bz1")
 
-    # Three Buttons (all lowActive / pull-up to ground):
-    # - Green button on GP13 (Positive feedback / Reset during alert)
-    # - Red button on GP14 (Negative feedback)
-    # - Blue button on GP15 (Manager silence button)
+    # Four Pushbuttons (all lowActive / pull-up to ground):
+    # - Green button on GP13: Customer Positive feedback
+    # - Red button on GP14: Customer Negative feedback
+    # - Blue button on GP15: Manager silence button (preserves ratings)
+    # - Yellow button on GP18: Manager reset button (clears ratings & alarm)
     green_btn = Button(13, "green", handler=None)
     red_btn = Button(14, "red", handler=None)
     manager_btn = Button(15, "manager", handler=None)
+    reset_btn = Button(18, "reset", handler=None)
 
     # Ultrasonic Sensor on GP2 (TRIG) and GP3 (ECHO)
     # Tripped when customer is within 10 cm (distance < 10.0 cm)
@@ -67,6 +69,7 @@ def main():
         greenButton=green_btn,
         redButton=red_btn,
         managerButton=manager_btn,
+        resetButton=reset_btn,
         ultrasonicSensor=uss,
         debug=True
     )
