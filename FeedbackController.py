@@ -1,6 +1,6 @@
 """
 FeedbackController.py
-Controller class implementing the State Machine for QuickRate kiosk.
+Controller class implementing the State Machine for QuickRate kiosk (3-Button layout).
 Author: buonma98
 """
 
@@ -16,13 +16,20 @@ from ManagerAlert import ManagerAlert
 class FeedbackController:
     """
     FeedbackController coordinates the entire QuickRate satisfaction kiosk system.
-    It integrates hardware sensors and 4 buttons into a 6-state state machine:
+    It integrates hardware sensors and 3 pushbuttons into a 6-state state machine:
       - State 0: Welcome (idle / waiting for customer)
       - State 1: Selection (prompting customer for feedback)
       - State 2: Happy (positive feedback recorded)
       - State 3: Unhappy (negative feedback recorded)
       - State 4: Alarm (manager alert activated on low satisfaction < 30%)
       - State 5: Alarm Silenced (buzzer silenced, ratings preserved, awaiting reset)
+
+    Button Mapping:
+      - Green (GP13): Positive customer feedback (State 1)
+      - Red (GP14): Negative customer feedback (State 1)
+      - Blue (GP15):
+          * 1st press in State 4 -> silences alarm, moves to State 5 (ratings kept)
+          * 2nd press in State 5 -> resets statistics, clears alarm, moves to State 0
     """
 
     STATE_WELCOME = 0
@@ -33,7 +40,7 @@ class FeedbackController:
     STATE_ALARM_SILENCED = 5
 
     def __init__(self, view: KioskView, stats: FeedbackStats, alert: ManagerAlert,
-                 greenButton, redButton, managerButton, resetButton,
+                 greenButton, redButton, managerButton,
                  ultrasonicSensor, debug: bool = True):
         """
         Initialize the FeedbackController and configure the state model.
@@ -51,9 +58,7 @@ class FeedbackController:
         redButton : Button
             Button on GP14 (Negative feedback).
         managerButton : Button
-            Button on GP15 (Manager silence button).
-        resetButton : Button
-            Button on GP18 (Manager reset button).
+            Button on GP15 (Manager silence and reset button).
         ultrasonicSensor : UltrasonicSensor
             Ultrasonic sensor on GP2 (trig) / GP3 (echo) with 10 cm threshold.
         debug : bool
@@ -69,18 +74,16 @@ class FeedbackController:
         # 6-state StateModel with self as handler
         self.stateModel: StateModel = StateModel(6, self, debug=debug)
 
-        # Configure buttons
+        # Configure 3 buttons
         # Button names dictate events: [name]_press and [name]_release
         self.greenButton = greenButton
         self.redButton = redButton
         self.managerButton = managerButton
-        self.resetButton = resetButton
         self.ultrasonicSensor = ultrasonicSensor
 
         self.stateModel.addButton(self.greenButton)
         self.stateModel.addButton(self.redButton)
         self.stateModel.addButton(self.managerButton)
-        self.stateModel.addButton(self.resetButton)
 
         # Sensor responsiveness optimization:
         # Ultrasonic echo timeout can block the main CPU loop for 60ms every cycle.
@@ -131,17 +134,15 @@ class FeedbackController:
         # These guards are resolved dynamically in stateEvent()
 
         # State 4 (Alarm):
-        # manager_press (blue button silences buzzer, keeps ratings) -> State 5 (Alarm Silenced)
+        # 1st manager_press (blue button silences buzzer, keeps ratings) -> State 5 (Alarm Silenced)
         # timer_timeout (10s buzzer timeout) -> State 5 (Alarm Silenced)
-        # reset_press (yellow button resets stats & clears alert) -> State 0 (Welcome)
         self.stateModel.addTransition(self.STATE_ALARM, ["manager_press", "timer_timeout"], self.STATE_ALARM_SILENCED)
-        self.stateModel.addTransition(self.STATE_ALARM, ["reset_press"], self.STATE_WELCOME)
 
         # State 5 (Alarm Silenced):
-        # reset_press (yellow button resets stats & clears alert) -> State 0 (Welcome)
-        self.stateModel.addTransition(self.STATE_ALARM_SILENCED, ["reset_press"], self.STATE_WELCOME)
+        # 2nd manager_press (blue button resets stats & clears alert) -> State 0 (Welcome)
+        self.stateModel.addTransition(self.STATE_ALARM_SILENCED, ["manager_press"], self.STATE_WELCOME)
 
-        Log.i("FeedbackController: Configured 6 states and 4 buttons successfully.")
+        Log.i("FeedbackController: Configured 6 states and 3 buttons successfully.")
 
     # -------------------------------------------------------------------------
     # StateModel Handler Callbacks: stateEntered, stateLeft, stateEvent, stateDo
@@ -195,8 +196,8 @@ class FeedbackController:
         if state in (self.STATE_SELECTION, self.STATE_HAPPY, self.STATE_UNHAPPY, self.STATE_ALARM):
             self.timer.cancel()
 
-        # In States 4 (Alarm) and 5 (Alarm Silenced), pressing yellow reset button resets statistics
-        if state in (self.STATE_ALARM, self.STATE_ALARM_SILENCED) and event == "reset_press":
+        # In State 5 (Alarm Silenced), pressing blue button a 2nd time resets statistics and clears alert
+        if state == self.STATE_ALARM_SILENCED and event == "manager_press":
             self.resetPressed()
 
     def stateEvent(self, state: int, event: str) -> bool:
@@ -229,12 +230,14 @@ class FeedbackController:
     def greenPressed(self) -> None:
         """Handle positive customer rating action."""
         self.stats.recordPositive()
-        self.view.showResult(good=True, percent=self.stats.getSatisfaction())
+        percent = self.stats.getSatisfaction()
+        self.view.showResult(good=True, percent=percent)
 
     def redPressed(self) -> None:
         """Handle negative customer rating action."""
         self.stats.recordNegative()
-        self.view.showResult(good=False, percent=self.stats.getSatisfaction())
+        percent = self.stats.getSatisfaction()
+        self.view.showResult(good=False, percent=percent)
 
     def managerPressed(self) -> None:
         """Handle manager blue button to silence buzzer without clearing ratings."""
@@ -242,10 +245,10 @@ class FeedbackController:
         self.view.showSilenced()
 
     def resetPressed(self) -> None:
-        """Handle manager yellow button to reset stats and clear alert."""
+        """Handle manager action to reset stats and clear alert."""
         self.alert.clear()
         self.stats.reset()
-        Log.i("FeedbackController: System reset via reset button.")
+        Log.i("FeedbackController: System reset via blue manager button.")
 
     def update(self) -> None:
         """Alias to drive state model execution."""

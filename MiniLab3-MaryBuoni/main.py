@@ -1,6 +1,6 @@
 """
 main.py
-Main entry point for "QuickRate" customer satisfaction kiosk (Mini Lab 3).
+Main entry point for "QuickRate" customer satisfaction kiosk (Mini Lab 3 - 3-Button Layout).
 Connects physical hardware peripherals to the Controller, View, and Model.
 Author: buonma98
 """
@@ -29,9 +29,9 @@ if not hasattr(PassiveBuzzer, 'playTone'):
 
 
 def main():
-    print("Starting QuickRate Satisfaction Kiosk...")
+    print("Starting QuickRate Satisfaction Kiosk (3-Button Layout)...")
 
-    # 1. Hardware setup matching Wokwi circuit
+    # 1. Hardware setup matching physical kit and Wokwi circuit
     # LCD 1602 Display (I2C): SDA on GP0, SCL on GP1
     lcd = LCDDisplay(sda=0, scl=1)
 
@@ -41,15 +41,13 @@ def main():
     # Passive Buzzer: GP21
     buzzer = PassiveBuzzer(pin=21, name="bz1")
 
-    # Four Pushbuttons (all lowActive / pull-up to ground):
-    # - Green button on GP13: Customer Positive feedback
-    # - Red button on GP14: Customer Negative feedback
-    # - Blue button on GP15: Manager silence button (preserves ratings)
-    # - Yellow button on GP18: Manager reset button (clears ratings & alarm)
+    # Three Pushbuttons (all lowActive / pull-up to ground):
+    # - Green button on GP13: Customer Positive feedback (State 1)
+    # - Red button on GP14: Customer Negative feedback (State 1)
+    # - Blue button on GP15: Manager button (1st press = silence, 2nd press = reset)
     green_btn = Button(13, "green", handler=None)
     red_btn = Button(14, "red", handler=None)
     manager_btn = Button(15, "manager", handler=None)
-    reset_btn = Button(18, "reset", handler=None)
 
     # Ultrasonic Sensor on GP2 (TRIG) and GP3 (ECHO)
     # Tripped when customer is within 10 cm (distance < 10.0 cm)
@@ -69,7 +67,6 @@ def main():
         greenButton=green_btn,
         redButton=red_btn,
         managerButton=manager_btn,
-        resetButton=reset_btn,
         ultrasonicSensor=uss,
         debug=True
     )

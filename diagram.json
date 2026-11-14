@@ -78,16 +78,6 @@
       "attrs": {
         "volume": "0.1"
       }
-    },
-    {
-      "type": "wokwi-pushbutton",
-      "id": "btn4",
-      "top": 78.2,
-      "left": 624,
-      "attrs": {
-        "color": "yellow",
-        "xray": "1"
-      }
     }
   ],
   "connections": [
@@ -265,25 +255,6 @@
       [
         "v28.8",
         "h-269.2"
-      ]
-    ],
-    [
-      "btn4:1.l",
-      "pico:GP18",
-      "yellow",
-      [
-        "h-38.4",
-        "v-20",
-        "h-364.8"
-      ]
-    ],
-    [
-      "btn4:2.l",
-      "pico:GND.7",
-      "black",
-      [
-        "v-10",
-        "h-200"
       ]
     ]
   ],
